@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#b8860b">
+    
+    <title>Radical Master: Imperial Edition</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+
+    <style>
+        html, body { overflow: hidden; touch-action: none; position: fixed; width: 100%; height: 100%; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: env(safe-area-inset-top) 20px 20px 20px; margin: 0; }
+        .container { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 600px; width: 100%; position: relative; min-height: 550px; touch-action: auto; overflow-y: auto; }
+        
+        .pinyin { font-size: 1.2em; color: #b8860b; font-weight: bold; margin-bottom: 5px; }
+        #target-area { margin: 10px auto; border: 3px solid #333; background: #fff; width: 280px; height: 280px; }
+        .success-flash { background-color: #d4edda !important; transition: background 0.2s; }
+        
+        .full-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 20px; box-sizing: border-box; border-radius: 15px; }
+        
+        .evolution-gallery { display: flex; justify-content: space-around; width: 100%; margin: 15px 0; gap: 10px; }
+        .evo-item { flex: 1; text-align: center; border: 1px solid #eee; border-radius: 8px; padding: 5px; background: #fff; }
+        .evo-item img { width: 100%; max-width: 70px; height: 70px; object-fit: contain; }
+        .evo-label { font-size: 0.7em; color: #888; margin-top: 5px; font-weight: bold; letter-spacing: 1px; }
+
+        .radical-focus { font-size: 4.5em; color: #b22222; margin: 5px 0; }
+        .briefing-box { font-size: 1em; line-height: 1.4; color: #444; margin-bottom: 15px; }
+
+        #quiz-char-display { font-size: 90px; margin-bottom: 10px; color: #333; }
+        .quiz-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        .quiz-btn { font-size: 28px; padding: 12px 20px; border: 2px solid #ddd; background: #f8f9fa; border-radius: 10px; cursor: pointer; }
+        .quiz-btn.correct { background-color: #28a745 !important; color: white !important; }
+        .quiz-btn.wrong { background-color: #dc3545 !important; color: white !important; }
+        #quiz-explanation { font-size: 0.95em; color: #666; background: #fdf2f2; padding: 15px; border-radius: 8px; display: none; border: 1px solid #f5c6cb; }
+
+        .timer-box { font-size: 1.2em; font-weight: bold; color: #dc3545; margin-bottom: 5px; visibility: hidden; }
+        .controls { margin-top: 10px; display: none; gap: 8px; justify-content: center; }
+        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
+        #rank-portrait { width: 150px; height: 200px; object-fit: cover; border: 4px solid #b8860b; border-radius: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Radical Master</h1>
+    <div id="pinyin-display" class="pinyin" style="visibility: hidden;">Pinyin</div>
+    <div class="timer-box" id="timer-container">Time: <span id="timer-val">60</span>s</div>
+    <div id="target-area"></div>
+
+    <div id="briefing-overlay" class="full-overlay">
+        <h3>Mastery Briefing</h3>
+        <div class="radical-focus" id="brief-orig"></div>
+        <div id="briefing-pinyin" class="pinyin"></div>
+        
+        <div class="evolution-gallery">
+            <div class="evo-item"><img id="img-oracle" src="" alt="Oracle"><div class="evo-label">ORACLE</div></div>
+            <div class="evo-item"><img id="img-seal" src="" alt="Seal"><div class="evo-label">SEAL</div></div>
+            <div class="evo-item"><img id="img-modern" src="" alt="Modern"><div class="evo-label">MODERN</div></div>
+        </div>
+
+        <div class="briefing-box">
+            This radical transforms into <strong id="brief-form" style="color:#b22222; font-size: 1.2em;"></strong>.
+            <p id="briefing-text" style="font-size: 0.9em;"></p>
+        </div>
+        <button class="btn-green" onclick="closeBriefing()">START WRITING</button>
+    </div>
+
+    <div id="results-overlay" class="full-overlay">
+        <img id="rank-portrait" src="" alt="Rank">
+        <div id="final-rank-display" style="font-size: 1.6em; color: #b8860b; font-weight: bold;">Title</div>
+        <div id="final-score-display">Score: 0</div>
+        <button class="btn-green" style="margin-top:20px;" onclick="location.reload()">RESTART</button>
+    </div>
+
+    <div id="quiz-overlay" class="full-overlay">
+        <h3>Identify the Radical Form</h3>
+        <div id="quiz-pinyin" class="pinyin"></div>
+        <div id="quiz-char-display"></div>
+        <div class="quiz-options" id="quiz-options"></div>
+        <div id="quiz-explanation"></div>
+    </div>
+
+    <div id="intro-overlay" class="full-overlay" style="display: flex;">
+        <h2>Imperial Examination</h2>
+        <p>Master the radicals to earn your rank.</p>
+        <button class="btn-green" onclick="startGame()">START EXAM</button>
+    </div>
+
+    <div class="controls" id="game-controls">
+        <button class="btn-blue" onclick="triggerHint()">HINT</button>
+        <button class="btn-green" onclick="forceNext()">SKIP</button>
+    </div>
+</div>
+
+<script>
+    const radicalsData = [
+        { 
+            char: '人', pinyin: 'rén', form: '亻', quizChar: '你', quizPinyin: 'nǐ', 
+            why: "In '你', the Person radical (人) shifts to '亻'.",
+            oracle: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/人-oracle.svg/120px-人-oracle.svg.png", 
+            seal: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/人-seal.svg/120px-人-seal.svg.png",
+            modern: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/人-order.gif/100px-人-order.gif"
+        },
+        { 
+            char: '水', pinyin: 'shuǐ', form: '氵', quizChar: '江', quizPinyin: 'jiāng', 
+            why: "Water (水) becomes the 'three drops' (氵).",
+            oracle: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/水-oracle.svg/120px-水-oracle.svg.png",
+            seal: "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/水-seal.svg/120px-水-seal.svg.png",
+            modern: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9e/水-order.gif/100px-水-order.gif"
+        },
+        { 
+            char: '火', pinyin: 'huǒ', form: '灬', quizChar: '热', quizPinyin: 'rè', 
+            why: "Fire (火) becomes 'four dots' (灬) at the bottom.",
+            oracle: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/火-oracle.svg/120px-火-oracle.svg.png",
+            seal: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/火-seal.svg/120px-火-seal.svg.png",
+            modern: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/火-order.gif/100px-火-order.gif"
+        }
+    ];
+
+    const rankConfig = [
+        { min: 50, title: "Grand Chancellor", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Duke_of_Zhou_Portrait.jpg/300px-Duke_of_Zhou_Portrait.jpg" },
+        { min: 30, title: "Imperial Scholar", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Qing_Dynasty_Official.jpg/300px-Qing_Dynasty_Official.jpg" },
+        { min: 0, title: "Novice Scribe", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Scholar_reading_by_a_window.jpg/300px-Scholar_reading_by_a_window.jpg" }
+    ];
+
+    let score = 0, currentIndex = 0, timeLeft = 60, writer = null, timer = null;
+    
+    // YOUTUBE GONG SOUND (Using requested URL)
+    const gongSound = new Audio('https://youtu.be/eTfNvfa0py4?si=YhCeAVsxPl0Td-dJ');
+
+    function startGame() {
+        document.getElementById('intro-overlay').style.display = 'none';
+        document.getElementById('game-controls').style.display = 'flex';
+        showBriefing();
+    }
+
+    function showBriefing() {
+        const data = radicalsData[currentIndex];
+        document.getElementById('pinyin-display').style.visibility = 'hidden';
+        document.getElementById('brief-orig').innerText = data.char;
+        document.getElementById('briefing-pinyin').innerText = data.pinyin;
+        document.getElementById('brief-form').innerText = data.form;
+        document.getElementById('briefing-text').innerText = data.why;
+        document.getElementById('img-oracle').src = data.oracle;
+        document.getElementById('img-seal').src = data.seal;
+        document.getElementById('img-modern').src = data.modern;
+        document.getElementById('briefing-overlay').style.display = 'flex';
+    }
+
+    function closeBriefing() {
+        document.getElementById('briefing-overlay').style.display = 'none';
+        document.getElementById('pinyin-display').style.visibility = 'visible';
+        document.getElementById('timer-container').style.visibility = 'visible';
+        loadRadical();
+    }
+
+    function loadRadical() {
+        if (timer) clearInterval(timer);
+        timeLeft = 60;
+        const data = radicalsData[currentIndex];
+        document.getElementById('pinyin-display').innerText = data.pinyin;
+        document.getElementById('target-area').innerHTML = '';
+        writer = HanziWriter.create('target-area', data.char, { width: 280, height: 280, showCharacter: false, padding: 20, strokeColor: '#007bff' });
+        writer.quiz({ onComplete: () => { score += 10; setTimeout(showMiniQuiz, 600); } });
+        startTimer();
+    }
+
+    function showMiniQuiz() {
+        const data = radicalsData[currentIndex];
+        const expDiv = document.getElementById('quiz-explanation');
+        expDiv.style.display = 'none';
+        document.getElementById('quiz-pinyin').innerText = data.quizPinyin;
+        document.getElementById('quiz-char-display').innerText = data.quizChar;
+        const optionsDiv = document.getElementById('quiz-options');
+        optionsDiv.innerHTML = '';
+        const correctAns = data.form;
+
+        const distractors = ['口', '目', '日', '月'].filter(d => d !== correctAns).slice(0, 2);
+        [correctAns, ...distractors].sort(() => Math.random() - 0.5).forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'quiz-btn';
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if (opt === correctAns) {
+                    btn.classList.add('correct'); score += 10;
+                    setTimeout(() => { document.getElementById('quiz-overlay').style.display = 'none'; nextRadical(); }, 800);
+                } else {
+                    btn.classList.add('wrong');
+                    Array.from(optionsDiv.children).forEach(b => {
+                        if (b.innerText === correctAns) b.classList.add('correct');
+                    });
+                    expDiv.innerText = "Correction: " + data.why;
+                    expDiv.style.display = 'block';
+                    setTimeout(() => { document.getElementById('quiz-overlay').style.display = 'none'; nextRadical(); }, 5000);
+                }
+            };
+            optionsDiv.appendChild(btn);
+        });
+        document.getElementById('quiz-overlay').style.display = 'flex';
+    }
+
+    function startTimer() { timer = setInterval(() => { timeLeft--; document.getElementById('timer-val').innerText = timeLeft; if (timeLeft <= 0) nextRadical(); }, 1000); }
+    function nextRadical() { currentIndex++; if (currentIndex >= radicalsData.length) showResults(); else showBriefing(); }
+
+    function showResults() {
+        if (timer) clearInterval(timer);
+        gongSound.play().catch(e => console.log("Gong triggered"));
+        const rank = rankConfig.find(r => score >= r.min) || rankConfig[rankConfig.length-1];
+        document.getElementById('rank-portrait').src = rank.img;
+        document.getElementById('final-rank-display').innerText = rank.title;
+        document.getElementById('final-score-display').innerText = "Total Score: " + score;
+        document.getElementById('results-overlay').style.display = 'flex';
+    }
+
+    function triggerHint() { if(writer) writer.animateCharacter(); }
+    function forceNext() { nextRadical(); }
+</script>
+</body>
+</html>
