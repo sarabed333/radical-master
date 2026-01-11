@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Radical Master: Imperial Ranking</title>
+    <script src="https://cdn.jsdelivr.net/npm/hanzi-writer@3.5/dist/hanzi-writer.min.js"></script>
+    <style>
+        html, body { overflow: hidden; touch-action: none; position: fixed; width: 100%; height: 100%; margin: 0; }
+        body { font-family: -apple-system, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 100%; max-width: 500px; position: relative; min-height: 550px; }
+        
+        .screen { position: absolute; top:0; left:0; width:100%; height:100%; background:white; z-index: 10; display: none; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; border-radius: 15px; }
+        .active { display: flex; }
+
+        /* UI Elements */
+        .anki-card { width: 100%; background: #fff5f5; border: 2px solid #ffcccb; padding: 12px; margin: 8px 0; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .mastery-badge { background: #e7f3ff; border: 1px solid #b3d7ff; padding: 10px; margin: 4px; border-radius: 8px; font-size: 0.9em; display: inline-block; color: #007bff; cursor: pointer; font-weight: bold; }
+        .tag-hard { background: #dc3545; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.7em; font-weight: bold; }
+        .btn-main { background: #007bff; color: white; padding: 15px 30px; border: none; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; margin: 5px 0; }
+        .btn-gold { background: #b8860b; color: white; padding: 15px 30px; border: none; border-radius: 10px; font-weight: bold; width: 100%; cursor: pointer; }
+        .btn-reset, .btn-delete { background: none; border: none; font-size: 0.8em; text-decoration: underline; cursor: pointer; margin-top: 10px; }
+        .btn-reset { color: #d9534f; }
+        .btn-delete { color: #666; }
+
+        /* Writing & Quiz */
+        #target-area { margin: 15px auto; border: 2px solid #333; width: 250px; height: 250px; background: #fff; }
+        .quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 20px; }
+        .quiz-btn { font-size: 28px; padding: 15px; border: 2px solid #eee; background: #fdfdfd; border-radius: 12px; cursor: pointer; }
+        .correct { background: #28a745 !important; color: white !important; }
+        .wrong { background: #dc3545 !important; color: white !important; }
+
+        /* Scroll & Rank Styles */
+        #screen-rank { background: #e0d5c1; overflow: hidden; }
+        .scroll-paper { background: #fdf5e6; width: 0%; height: 380px; overflow: hidden; border-top: 10px solid #8b4513; border-bottom: 10px solid #8b4513; transition: width 1.8s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; box-shadow: inset 0 0 50px rgba(0,0,0,0.1); z-index: 15; }
+        .scroll-paper.open { width: 92%; }
+        .rank-content { opacity: 0; transition: opacity 0.6s 1.5s; text-align: center; }
+        .scroll-paper.open .rank-content { opacity: 1; }
+        .imperial-seal { margin: 15px auto; width: 70px; height: 70px; border: 4px solid #b22222; color: #b22222; display: flex; align-items: center; justify-content: center; font-weight: 900; font-family: serif; transform: rotate(-8deg); opacity: 0; transition: opacity 0.5s 2s; }
+        .scroll-paper.open .imperial-seal { opacity: 1; }
+
+        /* Particles - Front Layer */
+        .petal { position: absolute; background-color: #ffb7c5; border-radius: 150% 0 150% 0; opacity: 0; pointer-events: none; animation: fall linear infinite; z-index: 100; }
+        @keyframes fall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(100vh) translateX(100px) rotate(360deg); opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<audio id="gong-audio" src="http://googleusercontent.com/file_content/0"></audio>
+
+<div class="container">
+    <div id="screen-login" class="screen active">
+        <h1>Radical Master</h1>
+        <button class="btn-main" onclick="initSRS()">Sign in with Google</button>
+    </div>
+
+    <div id="screen-gate" class="screen">
+        <div style="display:flex; justify-content: space-between; width:100%; align-items: center;">
+            <h2>Academy Gates</h2>
+            <button onclick="switchScreen('screen-settings')" style="background:none; border:none; font-size:1.5em;">⚙️</button>
+        </div>
+        <p id="daily-quota-text" style="font-size:0.8em; color:#666;"></p>
+        <div id="anki-review-stack" style="width: 100%; max-height: 180px; overflow-y: auto; margin-bottom: 10px;"></div>
+        <button id="btn-learn-new" class="btn-main" onclick="startSession('new')">LEARN NEW RADICALS</button>
+        <button class="btn-gold" onclick="startSession('exam')">IMPERIAL EXAM</button>
+        <div id="mastered-list" style="margin-top: 10px; display: flex; flex-wrap: wrap; justify-content: center;"></div>
+        <button class="btn-reset" onclick="resetProgress()">Reset Progress</button>
+        <button class="btn-delete" onclick="deleteAccount()">Delete Account</button>
+    </div>
+
+    <div id="screen-settings" class="screen">
+        <h2>Settings</h2>
+        <div style="background:#f8f9fa; padding:20px; border-radius:10px; width:80%;">
+            <span>Daily Limit: </span>
+            <select id="limit-select" onchange="updateLimit(this.value)">
+                <option value="5">5 Radicals</option>
+                <option value="10">10 Radicals</option>
+            </select>
+        </div>
+        <button class="btn-main" onclick="initSRS()" style="margin-top:20px;">BACK</button>
+    </div>
+
+    <div id="screen-brief" class="screen">
+        <div id="brief-char" style="font-size: 80px; color: #b22222;"></div>
+        <div id="brief-pinyin" style="font-weight: bold; color: #b8860b; font-size: 1.5em;"></div>
+        <div id="brief-evolution" style="background:#fff9f0; padding:15px; border-radius:10px; margin:15px 0; border-left: 5px solid #b8860b; width:90%; font-size:0.9em; text-align:left;"></div>
+        <p id="brief-text" style="color:#444; font-size:0.9em; padding:0 10px;"></p>
+        <button class="btn-main" onclick="openWriting()">START PRACTICE</button>
+    </div>
+
+    <div id="screen-writing" class="screen">
+        <h3 id="write-title">Write the Radical</h3>
+        <div id="target-area"></div>
+    </div>
+
+    <div id="screen-quiz" class="screen">
+        <h3 id="quiz-count-label">Question 1 of 3</h3>
+        <div id="quiz-char" style="font-size: 90px; margin: 0;"></div>
+        <div id="quiz-pinyin" style="font-weight: bold; color: #b8860b; font-size: 1.2em; margin-bottom: 10px;"></div>
+        <div id="quiz-options" class="quiz-options"></div>
+    </div>
+
+    <div id="screen-rank" class="screen">
+        <div id="particle-container" style="position:absolute; width:100%; height:100%; pointer-events:none; z-index: 100;"></div>
+        <div class="scroll-paper" id="scroll-paper">
+            <div class="rank-content">
+                <div style="font-size: 0.8em; color: #8b4513; letter-spacing: 3px; font-weight: bold;">BY IMPERIAL DECREE</div>
+                <div id="rank-name" style="font-size: 2.2em; color: #b22222; font-family: serif; font-weight: bold; margin: 10px 0; border-bottom: 2px solid #b22222; display: inline-block;"></div>
+                <p id="rank-desc" style="font-style: italic; color: #555; font-size: 0.95em; padding: 0 15px;"></p>
+                <div class="imperial-seal">翰林<br>院印</div>
+            </div>
+        </div>
+        <button class="btn-main" id="btn-rank-return" onclick="initSRS()" style="margin-top: 30px; background: #8b4513; width: 80%; opacity: 0; transition: opacity 0.5s 2.5s; z-index: 110;">RE-ENTER GATES</button>
+    </div>
+</div>
+
+<script>
+    const radicalsData = [
+        { char: '口', pinyin: 'kǒu', form: '口', quizChars: [{c:'唱', p:'chàng'}, {c:'喝', p:'hē'}, {c:'叫', p:'jiào'}], why: 'The mouth radical.', evo: 'Stays square (口), usually on the left side.' },
+        { char: '人', pinyin: 'rén', form: '亻', quizChars: [{c:'你', p:'nǐ'}, {c:'他', p:'tā'}, {c:'们', p:'men'}], why: 'The person radical.', evo: 'Changes to (亻) on the left side.' },
+        { char: '水', pinyin: 'shuǐ', form: '氵', quizChars: [{c:'江', p:'jiāng'}, {c:'海', p:'hǎi'}, {c:'洗', p:'xǐ'}], why: 'The water radical.', evo: 'Becomes three drops (氵) on the left side.' },
+        { char: '手', pinyin: 'shǒu', form: '扌', quizChars: [{c:'打', p:'dǎ'}, {c:'推', p:'tuī'}, {c:'拉', p:'lā'}], why: 'The hand radical.', evo: 'Compresses into (扌) when on the left.' },
+        { char: '心', pinyin: 'xīn', form: '忄', quizChars: [{c:'快', p:'kuài'}, {c:'慢', p:'màn'}, {c:'忙', p:'máng'}], why: 'The heart radical.', evo: 'Becomes "standing heart" (忄) on the left.' },
+        { char: '木', pinyin: 'mù', form: '木', quizChars: [{c:'林', p:'lín'}, {c:'桌', p:'zhuō'}, {c:'校', p:'xiào'}], why: 'The wood radical.', evo: 'Shortens its right stroke when on the left.' },
+        { char: '火', pinyin: 'huǒ', form: '火', quizChars: [{c:'炒', p:'chǎo'}, {c:'灯', p:'dēng'}, {c:'烧', p:'shāo'}], why: 'The fire radical.', evo: 'Occasionally becomes (灬) at the bottom.' },
+        { char: '言', pinyin: 'yán', form: '讠', quizChars: [{c:'说', p:'shuō'}, {c:'语', p:'yǔ'}, {c:'讲', p:'jiǎng'}], why: 'The speech radical.', evo: 'Simplified left-side form is 讠.' },
+        { char: '目', pinyin: 'mù', form: '目', quizChars: [{c:'眼', p:'yǎn'}, {c:'看', p:'kàn'}, {c:'睡', p:'shuì'}], why: 'The eye radical.', evo: 'Stays as a vertical rectangle 目.' },
+        { char: '女', pinyin: 'nǚ', form: '女', quizChars: [{c:'妈', p:'mā'}, {c:'姐', p:'jiě'}, {c:'好', p:'hǎo'}], why: 'The female radical.', evo: 'Horizontal stroke is tucked in on the left.' }
+    ];
+
+    let currentIndex = 0, quizSubIndex = 0, examMistakes = 0, isExam = false, isReview = false, writer = null;
+    let mastery = JSON.parse(localStorage.getItem('mastery')) || {};
+    let config = JSON.parse(localStorage.getItem('config')) || { dailyLimit: 5, learnedToday: 0, lastDate: "" };
+
+    function initSRS() {
+        switchScreen('screen-gate');
+        checkDailyQuota();
+        const hardQueue = Object.keys(mastery).filter(c => mastery[c].mistakes > 0);
+        const masteredQueue = Object.keys(mastery).filter(c => (mastery[c].count || 0) >= 5 && mastery[c].mistakes === 0);
+        
+        const stackContainer = document.getElementById('anki-review-stack');
+        stackContainer.innerHTML = '';
+        if (hardQueue.length > 0) {
+            document.getElementById('btn-learn-new').disabled = true;
+            document.getElementById('btn-learn-new').style.opacity = '0.5';
+            hardQueue.forEach(char => {
+                const card = document.createElement('div');
+                card.className = 'anki-card';
+                card.innerHTML = `<div><b>${char}</b></div> <span class="tag-hard">${mastery[char].mistakes} Errors</span>`;
+                card.onclick = () => { isReview = true; isExam = false; currentIndex = radicalsData.findIndex(r => r.char === char); quizSubIndex = 0; showBrief(); };
+                stackContainer.appendChild(card);
+            });
+        } else {
+            const atLimit = config.learnedToday >= config.dailyLimit;
+            document.getElementById('btn-learn-new').disabled = atLimit;
+            document.getElementById('btn-learn-new').style.opacity = atLimit ? '0.5' : '1';
+        }
+        document.getElementById('mastered-list').innerHTML = masteredQueue.map(c => `<div class="mastery-badge" onclick="reviewMastered('${c}')">${c} ✓</div>`).join('');
+        document.getElementById('daily-quota-text').innerText = `Learned Today: ${config.learnedToday} / ${config.dailyLimit}`;
+    }
+
+    function checkDailyQuota() {
+        const today = new Date().toDateString();
+        if (config.lastDate !== today) { config.learnedToday = 0; config.lastDate = today; saveConfig(); }
+    }
+
+    function startSession(mode) {
+        isExam = (mode === 'exam'); isReview = false; quizSubIndex = 0; examMistakes = 0;
+        if (isExam) { currentIndex = 0; openWriting(); } 
+        else {
+            currentIndex = radicalsData.findIndex(r => !mastery[r.char] || mastery[r.char].count < 5);
+            if (currentIndex === -1) { alert("All current radicals mastered!"); return; }
+            showBrief();
+        }
+    }
+
+    function showBrief() {
+        const data = radicalsData[currentIndex];
+        document.getElementById('brief-char').innerText = data.char;
+        document.getElementById('brief-pinyin').innerText = data.pinyin;
+        document.getElementById('brief-evolution').innerText = data.evo;
+        document.getElementById('brief-text').innerText = data.why;
+        switchScreen('screen-brief');
+    }
+
+    function openWriting() {
+        switchScreen('screen-writing');
+        document.getElementById('target-area').innerHTML = '';
+        writer = HanziWriter.create('target-area', radicalsData[currentIndex].char, { width: 250, height: 250, showCharacter: false, padding: 20 });
+        writer.quiz({ 
+            onMistake: () => { if(isExam) examMistakes++; recordMistake(radicalsData[currentIndex].char); }, 
+            onComplete: () => setTimeout(showQuiz, 600) 
+        });
+    }
+
+    function showQuiz() {
+        switchScreen('screen-quiz');
+        const data = radicalsData[currentIndex];
+        const currentTarget = data.quizChars[quizSubIndex];
+        
+        document.getElementById('quiz-char').innerText = currentTarget.c;
+        document.getElementById('quiz-pinyin').innerText = currentTarget.p;
+        document.getElementById('quiz-count-label').innerText = `Question ${quizSubIndex + 1} of 3`;
+        
+        const optContainer = document.getElementById('quiz-options');
+        optContainer.innerHTML = '';
+        const forms = radicalsData.map(r => r.form);
+        const choices = [data.form, ...forms.filter(f => f !== data.form).sort(() => 0.5 - Math.random()).slice(0, 3)].sort(() => Math.random() - 0.5);
+
+        choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'quiz-btn';
+            btn.innerText = choice;
+            btn.onclick = () => {
+                if (choice === data.form) {
+                    btn.classList.add('correct');
+                    quizSubIndex++;
+                    if (quizSubIndex < 3) setTimeout(showQuiz, 800);
+                    else { updateMastery(data.char, true); setTimeout(advance, 800); }
+                } else {
+                    btn.classList.add('wrong');
+                    if(isExam) examMistakes++;
+                    recordMistake(data.char);
+                    optContainer.querySelectorAll('.quiz-btn').forEach(b => { if(b.innerText === data.form) b.classList.add('correct'); });
+                    setTimeout(advance, 1500);
+                }
+            };
+            optContainer.appendChild(btn);
+        });
+    }
+
+    function advance() {
+        quizSubIndex = 0;
+        if (isReview) { initSRS(); } 
+        else {
+            currentIndex++;
+            if (currentIndex >= radicalsData.length) {
+                if (isExam) showImperialRank(); else initSRS();
+            } else {
+                if (isExam) openWriting(); else showBrief();
+            }
+        }
+    }
+
+    function showImperialRank() {
+        switchScreen('screen-rank');
+        const scroll = document.getElementById('scroll-paper');
+        const returnBtn = document.getElementById('btn-rank-return');
+        const container = document.getElementById('particle-container');
+        
+        scroll.classList.remove('open');
+        returnBtn.style.opacity = '0';
+        container.innerHTML = '';
+
+        setTimeout(() => {
+            document.getElementById('gong-audio').play();
+            scroll.classList.add('open');
+            const name = document.getElementById('rank-name');
+            const desc = document.getElementById('rank-desc');
+            if (examMistakes === 0) { name.innerText = "PRIME MINISTER"; desc.innerText = "Flawless wisdom. The Empire bows to you."; }
+            else if (examMistakes < 5) { name.innerText = "VICEROY"; desc.innerText = "A great pillar of the court."; }
+            else { name.innerText = "SCHOLAR"; desc.innerText = "Continue your studies to rise through the ranks."; }
+
+            setTimeout(() => {
+                for (let i = 0; i < 35; i++) {
+                    const p = document.createElement('div');
+                    p.className = 'petal';
+                    p.style.left = Math.random() * 100 + '%';
+                    p.style.width = p.style.height = (Math.random() * 10 + 6) + 'px';
+                    p.style.animationDuration = (Math.random() * 3 + 2.5) + 's';
+                    p.style.animationDelay = (Math.random() * 1.5) + 's';
+                    container.appendChild(p);
+                }
+                returnBtn.style.opacity = '1';
+            }, 1500);
+        }, 300);
+    }
+
+    function updateMastery(char, success) {
+        if (!mastery[char]) { mastery[char] = { mistakes: 0, count: 0 }; if(!isReview && !isExam) config.learnedToday++; }
+        if (success && mastery[char].mistakes > 0) mastery[char].mistakes--;
+        else if (success) mastery[char].count++;
+        saveConfig(); saveMastery();
+    }
+
+    function recordMistake(char) {
+        if (!mastery[char]) mastery[char] = { mistakes: 0, count: 0 };
+        mastery[char].mistakes += 1;
+        mastery[char].count = 0;
+        saveMastery();
+    }
+
+    function reviewMastered(char) { isReview = true; currentIndex = radicalsData.findIndex(r => r.char === char); showBrief(); }
+    function updateLimit(v) { config.dailyLimit = parseInt(v); saveConfig(); initSRS(); }
+    function resetProgress() { if(confirm("Reset progress?")) { localStorage.clear(); location.reload(); } }
+    function deleteAccount() { if(confirm("DELETE ACCOUNT?")) { localStorage.clear(); location.reload(); } }
+    function saveMastery() { localStorage.setItem('mastery', JSON.stringify(mastery)); }
+    function saveConfig() { localStorage.setItem('config', JSON.stringify(config)); }
+    function switchScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+</script>
+</body>
+</html>
