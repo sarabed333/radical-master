@@ -22,7 +22,6 @@
         
         .full-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: white; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; padding: 20px; box-sizing: border-box; border-radius: 15px; }
         
-        /* Quiz & Feedback */
         #quiz-char-display { font-size: 80px; margin-bottom: 20px; color: #333; }
         .quiz-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
         .quiz-btn { font-size: 28px; padding: 12px 20px; border: 2px solid #ddd; background: #f8f9fa; border-radius: 10px; cursor: pointer; }
@@ -30,10 +29,219 @@
         .quiz-btn.wrong { background-color: #dc3545 !important; color: white !important; }
         #quiz-explanation { font-size: 0.9em; color: #666; background: #fdf2f2; padding: 10px; border-radius: 8px; display: none; margin-top: 10px; }
 
-        /* Review Chamber */
         .review-section { margin-top: 20px; width: 100%; border-top: 1px solid #ddd; padding-top: 10px; }
         .review-item { display: inline-block; font-size: 24px; margin: 5px; padding: 10px; background: #fff; border: 2px solid #f39c12; cursor: pointer; position: relative; }
         .certified-seal { position: absolute; top: -5px; right: -5px; background: #b22222; color: white; font-size: 10px; padding: 2px 4px; border: 1px solid #800000; font-weight: bold; }
+
+        .timer-box { font-size: 1.2em; font-weight: bold; color: #dc3545; margin-bottom: 5px; visibility: hidden; }
+        .controls { margin-top: 10px; display: none; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        
+        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.85em; }
+        .btn-pause { background: #ffc107; color: #212529; }
+        .btn-purple { background: #6f42c1; color: white; }
+        .btn-blue { background: #007bff; color: white; }
+        .btn-green { background: #28a745; color: white; }
+        
+        #rank-portrait { width: 140px; height: 190px; object-fit: cover; border: 4px solid #b8860b; border-radius: 10px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Radical Master</h1>
+    <div class="timer-box" id="timer-container">Time: <span id="timer-val">60</span>s</div>
+    <div id="target-area"></div>
+
+    <div id="results-overlay" class="full-overlay">
+        <img id="rank-portrait" src="" alt="Rank">
+        <div id="final-rank-display" style="font-size: 1.6em; color: #b8860b; font-weight: bold;">Title</div>
+        <div id="final-score-display">Score: 0</div>
+        <div id="review-container" class="review-section" style="display:none;">
+            <h4>Review Chamber</h4>
+            <div id="review-list"></div>
+        </div>
+        <button class="btn-green" style="margin-top:10px;" onclick="location.reload()">RESTART</button>
+    </div>
+
+    <div id="quiz-overlay" class="full-overlay">
+        <h3>Spot the Radical Form</h3>
+        <div id="quiz-char-display"></div>
+        <div class="quiz-options" id="quiz-options"></div>
+        <div id="quiz-explanation"></div>
+    </div>
+
+    <div id="evo-overlay" class="full-overlay">
+        <h3 id="evo-label">Oracle Bone</h3>
+        <img id="evo-img-display" src="" alt="Evolution" style="max-height:150px; margin: 20px 0;">
+        <button class="btn-blue" onclick="closeOverlay('evo-overlay')">RETURN</button>
+    </div>
+
+    <div id="pause-overlay" class="full-overlay">
+        <h2>EXAM PAUSED</h2>
+        <button class="btn-blue" onclick="resumeGame()">RESUME</button>
+    </div>
+
+    <div id="intro-overlay" class="full-overlay" style="display: flex;">
+        <h2>Imperial Examination</h2>
+        <p>Master the radicals to earn your rank.</p>
+        <button class="btn-green" onclick="startGame()">START EXAM</button>
+    </div>
+
+    <div class="controls" id="game-controls">
+        <button class="btn-pause" onclick="pauseGame()">PAUSE</button>
+        <button class="btn-purple" onclick="openEvolution()">EVO</button>
+        <button class="btn-blue" onclick="triggerHint()">HINT</button>
+        <button class="btn-green" onclick="forceNext()">SKIP</button>
+    </div>
+</div>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('data:text/javascript,self.addEventListener("fetch", function(event){});');
+    }
+
+    const radicalsData = [
+        { char: '人', quizChar: '你', options: ['亻', '人', '入'], why: "In '你', the Person radical becomes '亻' on the left side.", stages: [{l:'Oracle Bone', u:'https://vividict.com/WordInfo/Images/Oracle/00001.png'}, {l:'Seal Script', u:'https://vividict.com/WordInfo/Images/Seal/00001.png'}] },
+        { char: '手', quizChar: '打', options: ['扌', '手', '力'], why: "Hand becomes '扌' when used on the left.", stages: [{l:'Oracle Bone', u:'https://vividict.com/WordInfo/Images/Oracle/00045.png'}, {l:'Seal Script', u:'https://vividict.com/WordInfo/Images/Seal/00045.png'}] },
+        { char: '水', quizChar: '江', options: ['氵', '水', '川'], why: "Water becomes '氵' (three drops).", stages: [{l:'Oracle Bone', u:'https://vividict.com/WordInfo/Images/Oracle/00020.png'}, {l:'Seal Script', u:'https://vividict.com/WordInfo/Images/Seal/00020.png'}] },
+        { char: '火', quizChar: '热', options: ['灬', '火', '人'], why: "Fire becomes '灬' at the bottom.", stages: [{l:'Oracle Bone', u:'https://vividict.com/WordInfo/Images/Oracle/00015.png'}, {l:'Seal Script', u:'https://vividict.com/WordInfo/Images/Seal/00015.png'}] },
+        { char: '心', quizChar: '忙', options: ['忄', '心', '人'], why: "Heart becomes '忄' on the left.", stages: [{l:'Oracle Bone', u:'https://vividict.com/WordInfo/Images/Oracle/00035.png'}, {l:'Seal Script', u:'https://vividict.com/WordInfo/Images/Seal/00035.png'}] }
+    ];
+
+    const rankConfig = [
+        { min: 40, title: "Grand Chancellor", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Duke_of_Zhou_Portrait.jpg/220px-Duke_of_Zhou_Portrait.jpg" },
+        { min: 20, title: "Imperial Scholar", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Qing_Dynasty_Official.jpg/220px-Qing_Dynasty_Official.jpg" },
+        { min: 0, title: "Novice Scribe", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Scholar_reading_by_a_window.jpg/220px-Scholar_reading_by_a_window.jpg" }
+    ];
+
+    let score = 0, currentIndex = 0, timeLeft = 60, isPaused = false, writer = null, timer = null, evoInterval = null;
+    let reviewList = new Set(), certifiedList = new Set();
+    
+    // Create audio object
+    const gongSound = new Audio('https://www.soundjay.com/misc/sounds/gong-1.mp3');
+
+    function startGame() {
+        // Unlock Audio for mobile browsers
+        gongSound.play().then(() => {
+            gongSound.pause();
+            gongSound.currentTime = 0;
+        }).catch(e => console.log("Audio unlock failed, will try at end"));
+
+        document.getElementById('intro-overlay').style.display = 'none';
+        document.getElementById('game-controls').style.display = 'flex';
+        document.getElementById('timer-container').style.visibility = 'visible';
+        loadRadical();
+    }
+
+    function loadRadical(reviewChar = null) {
+        if (timer) clearInterval(timer);
+        timeLeft = 60;
+        document.getElementById('target-area').innerHTML = '';
+        let charToLoad = reviewChar || radicalsData[currentIndex].char;
+        writer = HanziWriter.create('target-area', charToLoad, { width: 280, height: 280, showCharacter: false, padding: 20, strokeColor: '#007bff' });
+        
+        writer.quiz({
+            onMistake: () => { if(!reviewChar) reviewList.add(charToLoad); },
+            onComplete: () => {
+                document.body.classList.add('success-flash');
+                setTimeout(() => document.body.classList.remove('success-flash'), 400);
+                if(!reviewChar) { score += 10; setTimeout(showMiniQuiz, 600); }
+                else { certifiedList.add(reviewChar); setTimeout(showResults, 800); }
+            }
+        });
+        if(!reviewChar) startTimer();
+    }
+
+    function showMiniQuiz() {
+        isPaused = true;
+        const data = radicalsData[currentIndex];
+        const expDiv = document.getElementById('quiz-explanation');
+        expDiv.style.display = 'none';
+        document.getElementById('quiz-char-display').innerText = data.quizChar;
+        const optionsDiv = document.getElementById('quiz-options');
+        optionsDiv.innerHTML = '';
+        const correctAns = data.options[0];
+
+        [...data.options].sort(() => Math.random() - 0.5).forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'quiz-btn';
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if (opt === correctAns) {
+                    btn.classList.add('correct'); score += 10;
+                    setTimeout(() => { document.getElementById('quiz-overlay').style.display = 'none'; isPaused = false; nextRadical(); }, 800);
+                } else {
+                    btn.classList.add('wrong'); reviewList.add(data.char);
+                    Array.from(optionsDiv.children).forEach(b => { if (b.innerText === correctAns) b.classList.add('correct'); });
+                    expDiv.innerText = data.why; expDiv.style.display = 'block';
+                    setTimeout(() => { document.getElementById('quiz-overlay').style.display = 'none'; isPaused = false; nextRadical(); }, 4000);
+                }
+            };
+            optionsDiv.appendChild(btn);
+        });
+        document.getElementById('quiz-overlay').style.display = 'flex';
+    }
+
+    function startTimer() { timer = setInterval(() => { if(!isPaused){ timeLeft--; document.getElementById('timer-val').innerText = timeLeft; if (timeLeft <= 0) nextRadical(); } }, 1000); }
+    function nextRadical() { currentIndex++; if (currentIndex >= radicalsData.length) showResults(); else loadRadical(); }
+
+    function showResults() {
+        if (timer) clearInterval(timer);
+        
+        // Final attempt to play gong
+        gongSound.play().catch(() => {
+            // If it still fails, the browser is very strict.
+            console.log("Browser blocked gong sound.");
+        });
+
+        const rank = rankConfig.find(r => score >= r.min) || rankConfig[rankConfig.length-1];
+        document.getElementById('rank-portrait').src = rank.img;
+        document.getElementById('final-rank-display').innerText = rank.title;
+        document.getElementById('final-score-display').innerText = "Total Score: " + score;
+
+        if (reviewList.size > 0) {
+            const listDiv = document.getElementById('review-list');
+            listDiv.innerHTML = '';
+            reviewList.forEach(char => {
+                let div = document.createElement('div');
+                div.className = 'review-item';
+                div.innerText = char;
+                if (certifiedList.has(char)) {
+                    let seal = document.createElement('div'); seal.className = 'certified-seal'; seal.innerText = '印'; div.appendChild(seal);
+                } else { div.onclick = () => { document.getElementById('results-overlay').style.display = 'none'; loadRadical(char); }; }
+                listDiv.appendChild(div);
+            });
+            document.getElementById('review-container').style.display = 'block';
+        }
+        document.getElementById('results-overlay').style.display = 'flex';
+        document.getElementById('game-controls').style.display = 'none';
+    }
+
+    function openEvolution() {
+        isPaused = true;
+        const data = radicalsData[currentIndex];
+        const img = document.getElementById('evo-img-display');
+        const lbl = document.getElementById('evo-label');
+        let step = 0;
+        clearInterval(evoInterval);
+        const runEvo = () => {
+            const stage = data.stages[step];
+            lbl.innerText = stage.l; img.src = stage.u;
+            step = (step + 1) % data.stages.length;
+        };
+        runEvo();
+        evoInterval = setInterval(runEvo, 1500);
+        document.getElementById('evo-overlay').style.display = 'flex';
+    }
+
+    function triggerHint() { if(writer) writer.animateCharacter(); }
+    function forceNext() { nextRadical(); }
+    function pauseGame() { isPaused = true; document.getElementById('pause-overlay').style.display = 'flex'; }
+    function resumeGame() { isPaused = false; document.getElementById('pause-overlay').style.display = 'none'; }
+    function closeOverlay(id) { document.getElementById(id).style.display = 'none'; if(evoInterval) clearInterval(evoInterval); isPaused = false; }
+</script>
+</body>
+</html>
 
         .timer-box { font-size: 1.2em; font-weight: bold; color: #dc3545; margin-bottom: 5px; visibility: hidden; }
         .controls { margin-top: 10px; display: none; gap: 8px; justify-content: center; flex-wrap: wrap; }
